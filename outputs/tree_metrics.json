@@ -1,0 +1,29 @@
+{
+  "metrics": {
+    "model": "RandomForestRegressor",
+    "rmse": 1312111.6956086722,
+    "mae": 952248.34463706,
+    "r2": 0.5916943749019612
+  },
+  "split_sizes": {
+    "train": 381,
+    "val": 82,
+    "test": 82
+  },
+  "feature_importances": {
+    "area": 0.4763080262038382,
+    "bathrooms": 0.16527293519363864,
+    "airconditioning": 0.05734743565021752,
+    "parking": 0.055850738195133795,
+    "stories": 0.05325510803489727,
+    "bedrooms": 0.040987710764849,
+    "furnishingstatus_unfurnished": 0.03727945866068476,
+    "basement": 0.03400913750766002,
+    "prefarea": 0.033222879517344456,
+    "guestroom": 0.016374990081733296,
+    "furnishingstatus_semi-furnished": 0.012303338690253069,
+    "hotwaterheating": 0.011588629182196431,
+    "mainroad": 0.006199612317553608
+  },
+  "shap_mean_abs": null
+}
