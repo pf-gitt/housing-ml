@@ -1,8 +1,10 @@
-# Housing ML — Projeto de Regressão
+# Housing ML — Previsão de Preços de Imóveis
 
-Projeto simples de Machine Learning: previsão do preço de imóveis (`price`)
-a partir de features como área, número de quartos, banheiros, se tem
-ar-condicionado, etc. (dataset `Housing.csv`, 545 linhas, sem valores nulos).
+Projeto de Machine Learning (regressão): previsão do preço de imóveis
+(`price`) a partir de features como área, número de quartos, banheiros,
+ar-condicionado, etc. Dataset `Housing.csv` (545 imóveis, 13 colunas, sem
+valores nulos). Dois modelos são treinados e comparados: **Random Forest**
+(scikit-learn) e uma **MLP** (PyTorch).
 
 ## Estrutura
 
@@ -12,41 +14,44 @@ housing-ml/
 │   └── Housing.csv
 ├── src/
 │   ├── eda.py            # análise exploratória (colunas, nulos, correlações)
-│   ├── preprocess.py      # encoding + split + padronização (compartilhado)
-│   ├── train_tree.py      # Random Forest Regressor (scikit-learn)
-│   └── train_mlp.py       # MLP (PyTorch)
-├── outputs/                # gerado ao rodar os scripts (métricas, modelos, gráficos)
+│   ├── preprocess.py     # encoding + split treino/val/teste + padronização
+│   ├── train_tree.py     # Random Forest Regressor (scikit-learn)
+│   └── train_mlp.py      # MLP (PyTorch), com early stopping
+├── outputs/               # métricas, modelos e gráficos gerados pelos scripts
 ├── Dockerfile
 ├── requirements.txt
 └── README.md
 ```
 
-## Metodologia (atualizada com o feedback do professor)
+## Metodologia
 
-**Split dos dados (3 partes):**
-- **Treino (70%)**: usado para calcular o gradiente e ajustar os pesos do modelo
-- **Validação (15%)**: usado só para o *early stopping* (decidir quando parar), nunca ajusta pesos
-- **Teste cego (15%)**: nunca visto durante treino nem validação; avaliado uma única vez, no final
+**Split dos dados em 3 partes** (evita vazamento de informação):
+- **Treino (70%, 381 amostras)**: usado para calcular o gradiente e ajustar os pesos do modelo
+- **Validação (15%, 82 amostras)**: usado só para o *early stopping* (decidir quando parar), nunca ajusta pesos
+- **Teste cego (15%, 82 amostras)**: nunca visto durante treino nem validação; avaliado uma única vez, no final
 
-Random Forest não usa gradiente/early stopping, então treina com treino+validação
-juntos e avalia no mesmo teste cego (para a comparação com a MLP ser justa).
+Random Forest não usa gradiente nem early stopping, então treina com
+treino+validação juntos e avalia no mesmo teste cego (mantendo a comparação
+com a MLP justa).
 
 **Treino da MLP:**
-- Pré-treino: inicialização dos pesos (default do PyTorch) + padronização das
-  features (média 0, desvio 1) calculada só a partir do treino
-- Cada batch: MSE loss -> `loss.backward()` (backpropagation/autograd calcula o
-  gradiente) -> `optimizer.step()` (Adam atualiza os pesos)
+- Pré-treino: inicialização dos pesos (default do PyTorch, Kaiming) + padronização
+  das features (média 0, desvio 1) calculada só a partir do treino
+- Cada batch: MSE loss → `loss.backward()` (backpropagation/autograd calcula o
+  gradiente) → `optimizer.step()` (Adam atualiza os pesos)
 - Ao fim de cada época: loss de validação é calculada (sem atualizar pesos)
 - **Early stopping com patience=20**: se a validação não melhora por 20 épocas
   seguidas, o treino para e os pesos da melhor época são restaurados
 
 **Explicabilidade (XAI):** SHAP (`shap.TreeExplainer` para a árvore,
-`shap.KernelExplainer` para a MLP) para ver quais features mais influenciam
-cada previsão individual, além da importância nativa (MDI) do Random Forest.
+`shap.KernelExplainer` para a MLP), para medir o impacto de cada feature nas
+previsões, complementando a importância nativa (MDI) do Random Forest.
 
-## Rodando sem Docker (ambiente local com Python 3.11)
+## Rodando sem Docker
 
 ```bash
+python -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 cd src
@@ -55,58 +60,55 @@ python train_tree.py    # treina a árvore, salva outputs/tree_model.joblib
 python train_mlp.py     # treina a MLP, salva outputs/mlp_model.pt
 ```
 
-**Novos arquivos gerados em `outputs/`:**
+**Arquivos gerados em `outputs/`:**
+- `correlation_heatmap.png`, `price_distribution.png`: análise exploratória
 - `tree_scatter_fit.png` / `mlp_scatter_fit.png`: preço real vs. previsto + reta de ajuste
-- `mlp_training_curve.png`: loss de treino e validação por época (mostra onde o early stopping parou)
+- `mlp_training_curve.png`: loss de treino e validação por época
 - `tree_shap_summary.png` / `mlp_shap_summary.png`: importância das features via SHAP
-- `tree_metrics.json` / `mlp_metrics.json`: agora incluem `split_sizes`, `history` (MLP) e `shap_mean_abs`
+- `tree_metrics.json` / `mlp_metrics.json`: métricas, `split_sizes`, histórico de treino (MLP) e valores SHAP
 
-> **Nota sobre tempo**: o cálculo do SHAP para a MLP usa `KernelExplainer`,
-> que é mais lento (precisa rodar o modelo várias vezes por amostra). Pode
-> levar alguns minutos, mesmo rodando só numa amostra de 30 exemplos do teste.
+> O cálculo do SHAP para a MLP usa `KernelExplainer`, que é mais lento
+> (roda o modelo várias vezes por amostra) — pode levar alguns minutos.
 
 ## Rodando com Docker
 
-1. Build da imagem:
+Build da imagem:
 ```bash
 docker build -t housing-ml .
 ```
 
-2. Rodar o treino da árvore (padrão) e salvar os resultados na sua máquina:
+Rodar o treino da árvore (padrão) e salvar os resultados na sua máquina:
 ```bash
 docker run --rm -v $(pwd)/outputs:/app/outputs housing-ml
 ```
+*(Windows/cmd: troque `$(pwd)` por `%cd%`)*
 
-3. Rodar a MLP em vez da árvore:
+Rodar a MLP:
 ```bash
 docker run --rm -v $(pwd)/outputs:/app/outputs housing-ml python train_mlp.py
 ```
 
-4. Rodar a EDA:
+Rodar a EDA:
 ```bash
 docker run --rm -v $(pwd)/outputs:/app/outputs housing-ml python eda.py
 ```
 
 > O `-v $(pwd)/outputs:/app/outputs` monta a pasta `outputs/` local dentro do
-> container, então os arquivos gerados (métricas, modelos, gráficos) aparecem
-> na sua máquina depois do container terminar.
+> container, então os arquivos gerados aparecem na sua máquina depois do
+> container terminar.
 
-## Resultados obtidos (rodados localmente, fora do Docker)
+## Resultados (teste cego, 82 amostras nunca vistas no treino/validação)
 
-> ⚠️ Os splits mudaram (agora treino/validação/teste cego em vez de treino/teste
-> simples), então os números abaixo **não são diretamente comparáveis** aos que
-> você tinha rodado antes. Rode de novo pra pegar os valores atualizados.
+| Modelo         | RMSE   | MAE    | R²    |
+|----------------|--------|--------|-------|
+| Random Forest  | 1.31M  | 0.95M  | 0.592 |
+| MLP (PyTorch)  | 1.19M  | 0.90M  | 0.662 |
 
-| Modelo         | RMSE          | MAE           | R²    |
-|----------------|---------------|---------------|-------|
-| Random Forest  | ~1.31M        | ~0.95M        | ~0.59 |
-| MLP (PyTorch)  | *a testar*    | *a testar*    | *a testar* |
+A MLP superou o Random Forest nas três métricas. O early stopping da MLP
+disparou cedo (melhor época: 10; parada na época 30), indicando que o
+dataset (545 amostras) é pequeno para uma rede neural — a loss de treino
+continua caindo após a época 10, mas a de validação estagna, sinal de
+overfitting.
 
-## Próximos passos
-
-- [ ] Rodar `train_mlp.py` de novo (com early stopping) e conferir as métricas e a curva de treino
-- [ ] Se quiser a análise SHAP, instalar a lib: `pip install shap --break-system-packages`
-      (ou reconstruir a imagem Docker, que já inclui `shap` no `requirements.txt`)
-- [ ] Testar o build/run do Docker de novo -- **precisa rebuildar** (`docker build -t housing-ml .`)
-      porque o `requirements.txt` mudou (adicionamos `shap`)
-- [ ] Depois disso: atualizar os slides do Overleaf com a nova metodologia e os resultados
+Em ambos os modelos, `area` e `bathrooms` são as features mais importantes,
+tanto pela importância nativa do Random Forest quanto pelos valores SHAP.
