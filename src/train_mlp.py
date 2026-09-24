@@ -77,18 +77,20 @@ def plot_training_curve(history, save_path):
 
 def plot_scatter_with_fit(y_true, y_pred, title, save_path):
     fig, ax = plt.subplots(figsize=(6, 6))
-    ax.scatter(y_true, y_pred, alpha=0.6, edgecolor="k", linewidth=0.3, color="#7A1F2D")
+    ax.scatter(y_pred, y_true, alpha=0.6, edgecolor="k", linewidth=0.3, color="#7A1F2D")
 
-    coeffs = np.polyfit(y_true, y_pred, deg=1)
+    coeffs = np.polyfit(y_pred, y_true, deg=1)
     fit_line = np.poly1d(coeffs)
-    x_range = np.linspace(y_true.min(), y_true.max(), 100)
+    x_range = np.linspace(y_pred.min(), y_pred.max(), 100)
     ax.plot(x_range, fit_line(x_range), color="#7A1F2D", linewidth=2,
              label=f"Ajuste linear (y={coeffs[0]:.2f}x+{coeffs[1]:.0f})")
-    ax.plot(x_range, x_range, color="gray", linestyle="--", linewidth=1.5,
+    full_range = np.linspace(min(y_pred.min(), y_true.min()),
+                              max(y_pred.max(), y_true.max()), 100)
+    ax.plot(full_range, full_range, color="gray", linestyle="--", linewidth=1.5,
              label="Previsão perfeita (y=x)")
 
-    ax.set_xlabel("Preço real")
-    ax.set_ylabel("Preço previsto")
+    ax.set_xlabel("Preço previsto")
+    ax.set_ylabel("Preço real")
     ax.set_title(title)
     ax.legend()
     plt.tight_layout()
